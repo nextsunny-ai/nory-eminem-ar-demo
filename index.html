@@ -215,19 +215,12 @@ function show(id){document.querySelectorAll('.screen').forEach(s=>s.classList.re
 function goHome(){stopCity();stopEminem();show('menu')}
 
 // CRITICAL: getUserMedia must be FIRST await in click handler for iOS Safari
-document.querySelector('[data-goto="city"]').addEventListener('click', async()=>{
-  try{
-    // Camera FIRST — within user gesture context
-    try{cityStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'}},audio:false})}
-    catch(e1){cityStream=await navigator.mediaDevices.getUserMedia({video:true,audio:false})}
-    show('city-screen');
-    $('#city-video').style.display='';
-    $('#city-video').srcObject=cityStream;
-    await new Promise(r=>$('#city-video').onloadedmetadata=r);
-    $('#city-video').play();
-    $('#city-loading').classList.add('hide');
-    showCityStep(0);
-  }catch(e){show('city-screen');showPermErr('city-loading',e)}
+document.querySelector('[data-goto="city"]').addEventListener('click', ()=>{
+  // CITY mode: no camera — pure interactive visual sequence
+  show('city-screen');
+  $('#city-video').style.display='none';
+  $('#city-loading').classList.add('hide');
+  showCityStep(0);
 });
 
 document.querySelector('[data-goto="eminem"]').addEventListener('click', async()=>{
