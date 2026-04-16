@@ -190,7 +190,7 @@ canvas.overlay.selfie{transform:scaleX(-1)}
       <div class="watermark">#BECOMEEMINEM · #NORYCITY</div>
     </div>
   </div>
-  <div class="loading" id="em-loading"><div class="spin"></div><div>Loading face model...</div></div>
+  <div class="loading" id="em-loading"><div class="spin"></div><div>Loading camera + face model...</div></div>
 </section>
 
 <div id="capture-preview"><img id="capture-img" alt=""><div class="actions"><button id="download-btn">DOWNLOAD</button><button class="secondary" id="retake-btn">CLOSE</button></div></div>
@@ -210,27 +210,45 @@ const $=s=>document.querySelector(s);
 let cityStream=null,emStream=null,faceLandmarker=null,emRunning=false,emMode='eminem',emCameraFacing='user';
 
 // ============ SCREEN NAV ============
-document.querySelectorAll('[data-goto]').forEach(b=>b.addEventListener('click',()=>go(b.dataset.goto)));
 document.querySelectorAll('[data-back]').forEach(b=>b.addEventListener('click',goHome));
 function show(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.getElementById(id).classList.add('active')}
-async function go(w){if(w==='city'){show('city-screen');await startCity()}if(w==='eminem'){show('eminem-screen');await startEminem()}}
 function goHome(){stopCity();stopEminem();show('menu')}
 
-// ============ CITY MODE ============
-let cityStep=0;
-async function startCity(){
-  $('#city-loading').classList.remove('hide');
+// CRITICAL: getUserMedia must be FIRST await in click handler for iOS Safari
+document.querySelector('[data-goto="city"]').addEventListener('click', async()=>{
   try{
+    // Camera FIRST — within user gesture context
     try{cityStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'}},audio:false})}
-    catch(e1){try{cityStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'user'},audio:false})}
-    catch(e2){cityStream=await navigator.mediaDevices.getUserMedia({video:true,audio:false})}}
+    catch(e1){cityStream=await navigator.mediaDevices.getUserMedia({video:true,audio:false})}
+    show('city-screen');
+    $('#city-video').style.display='';
     $('#city-video').srcObject=cityStream;
     await new Promise(r=>$('#city-video').onloadedmetadata=r);
     $('#city-video').play();
     $('#city-loading').classList.add('hide');
     showCityStep(0);
-  }catch(e){showPermErr('city-loading',e)}
-}
+  }catch(e){show('city-screen');showPermErr('city-loading',e)}
+});
+
+document.querySelector('[data-goto="eminem"]').addEventListener('click', async()=>{
+  show('eminem-screen');
+  $('#em-loading').classList.remove('hide');
+  try{
+    // Camera FIRST — within user gesture context
+    try{emStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:emCameraFacing},audio:false})}
+    catch(e1){emStream=await navigator.mediaDevices.getUserMedia({video:true,audio:false})}
+    // Then load face model
+    await initFace();
+    $('#em-video').srcObject=emStream;
+    await new Promise(r=>$('#em-video').onloadedmetadata=r);$('#em-video').play();
+    resizeC();window.addEventListener('resize',resizeC);
+    $('#em-loading').classList.add('hide');emRunning=true;emLoop();
+  }catch(e){showPermErr('em-loading',e);console.error(e)}
+});
+
+// ============ CITY MODE ============
+let cityStep=0;
+// startCity is now inline in click handler above
 function stopCity(){if(cityStream){cityStream.getTracks().forEach(t=>t.stop());cityStream=null}cityStep=0}
 
 function showCityStep(n){
@@ -257,7 +275,18 @@ $('#door-box').addEventListener('click',()=>{
   setTimeout(()=>{showCityStep(1)},1000);
 });
 $('#alley-next').addEventListener('click',()=>showCityStep(2));
-$('#graffiti-next').addEventListener('click',async()=>{stopCity();show('eminem-screen');await startEminem()});
+$('#graffiti-next').addEventListener('click',async()=>{
+  stopCity();show('eminem-screen');$('#em-loading').classList.remove('hide');
+  try{
+    try{emStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'user'},audio:false})}
+    catch(e1){emStream=await navigator.mediaDevices.getUserMedia({video:true,audio:false})}
+    await initFace();
+    $('#em-video').srcObject=emStream;
+    await new Promise(r=>$('#em-video').onloadedmetadata=r);$('#em-video').play();
+    resizeC();window.addEventListener('resize',resizeC);
+    $('#em-loading').classList.add('hide');emRunning=true;emLoop();
+  }catch(e){showPermErr('em-loading',e)}
+});
 
 // ============ GRAFFITI DRAWING ============
 let sprayColor='#FF2D87';
@@ -298,20 +327,7 @@ async function initFace(){
     outputFaceBlendshapes:false,runningMode:"VIDEO",numFaces:5
   });
 }
-async function startEminem(){
-  $('#em-loading').classList.remove('hide');
-  try{
-    await initFace();
-    $('#em-loading').innerHTML='<div class="spin"></div><div>Starting camera...</div>';
-    try{emStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:emCameraFacing},audio:false})}
-    catch(e1){try{emStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:(emCameraFacing==='user'?'environment':'user')},audio:false})}
-    catch(e2){emStream=await navigator.mediaDevices.getUserMedia({video:true,audio:false})}}
-    $('#em-video').srcObject=emStream;
-    await new Promise(r=>$('#em-video').onloadedmetadata=r);$('#em-video').play();
-    resizeC();window.addEventListener('resize',resizeC);
-    $('#em-loading').classList.add('hide');emRunning=true;emLoop();
-  }catch(e){showPermErr('em-loading',e);console.error(e)}
-}
+// startEminem is now inline in click handler above
 function stopEminem(){emRunning=false;if(emStream){emStream.getTracks().forEach(t=>t.stop());emStream=null}}
 function resizeC(){const v=$('#em-video'),c=$('#em-canvas'),r=v.getBoundingClientRect();c.width=r.width;c.height=r.height;c.style.width=r.width+'px';c.style.height=r.height+'px'}
 let lt=0;
@@ -345,7 +361,18 @@ function drawHair(ctx,fw,fh,mode){
 
 // ============ UI ============
 document.querySelectorAll('[data-em-mode]').forEach(b=>b.addEventListener('click',()=>{document.querySelectorAll('[data-em-mode]').forEach(x=>x.classList.remove('active'));b.classList.add('active');emMode=b.dataset.emMode}));
-$('#em-flip').addEventListener('click',async()=>{emCameraFacing=emCameraFacing==='user'?'environment':'user';$('#em-video').classList.toggle('selfie');$('#em-canvas').classList.toggle('selfie');if(emStream)emStream.getTracks().forEach(t=>t.stop());await startEminem()});
+$('#em-flip').addEventListener('click',async()=>{
+  emCameraFacing=emCameraFacing==='user'?'environment':'user';
+  $('#em-video').classList.toggle('selfie');$('#em-canvas').classList.toggle('selfie');
+  if(emStream)emStream.getTracks().forEach(t=>t.stop());
+  try{
+    try{emStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:emCameraFacing},audio:false})}
+    catch(e1){emStream=await navigator.mediaDevices.getUserMedia({video:true,audio:false})}
+    $('#em-video').srcObject=emStream;
+    await new Promise(r=>$('#em-video').onloadedmetadata=r);$('#em-video').play();
+    resizeC();
+  }catch(e){console.error(e)}
+});
 $('#em-info').addEventListener('click',()=>showToast('Multi-face up to 5. Try SLIM SHADY mode.'));
 $('#em-shutter').addEventListener('click',()=>{
   const v=$('#em-video'),oc=$('#em-canvas'),cap=document.createElement('canvas');cap.width=oc.width;cap.height=oc.height;const cctx=cap.getContext('2d');
