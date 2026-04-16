@@ -266,16 +266,22 @@ function goHome() {
 // ============================================================
 async function startCity() {
   $('#city-loading').classList.remove('hide');
+  $('#city-loading').innerHTML = '<div class="spin"></div><div>Starting camera...</div>';
   try {
-    cityStream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } },
-      audio: false
-    });
+    // Try rear camera first, then front fallback, then no-constraint fallback
+    try {
+      cityStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } }, audio: false });
+    } catch (e1) {
+      try {
+        cityStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false });
+      } catch (e2) {
+        cityStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+      }
+    }
     $('#city-video').srcObject = cityStream;
     await new Promise(r => $('#city-video').onloadedmetadata = r);
     $('#city-video').play();
     $('#city-loading').classList.add('hide');
-    // reset portal state
     $('#portal-box').classList.remove('opening');
     $('#portal-box').style.display = '';
     $('#city-scene').classList.remove('show');
@@ -283,7 +289,7 @@ async function startCity() {
     $('#city-next').classList.remove('show');
     $('#city-scene').style.backgroundImage = `url(${$('#img-alley').src})`;
   } catch (e) {
-    $('#city-loading').innerHTML = 'Camera permission denied.<br><br>Go back and allow camera access in browser settings.';
+    showPermErr('city-loading', e);
   }
 }
 function stopCity() {
@@ -328,12 +334,19 @@ async function initFaceLandmarker() {
 
 async function startEminem() {
   $('#em-loading').classList.remove('hide');
+  $('#em-loading').innerHTML = '<div class="spin"></div><div>Loading face model...</div>';
   try {
     await initFaceLandmarker();
-    emStream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: emCameraFacing, width: { ideal: 1280 }, height: { ideal: 720 } },
-      audio: false
-    });
+    $('#em-loading').innerHTML = '<div class="spin"></div><div>Starting camera...</div>';
+    try {
+      emStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: emCameraFacing }, audio: false });
+    } catch (e1) {
+      try {
+        emStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: (emCameraFacing==='user'?'environment':'user') }, audio: false });
+      } catch (e2) {
+        emStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+      }
+    }
     $('#em-video').srcObject = emStream;
     await new Promise(r => $('#em-video').onloadedmetadata = r);
     $('#em-video').play();
@@ -343,7 +356,7 @@ async function startEminem() {
     emRunning = true;
     emLoop();
   } catch (e) {
-    $('#em-loading').innerHTML = 'Camera permission denied.<br><br>Go back and allow camera access.';
+    showPermErr('em-loading', e);
     console.error(e);
   }
 }
@@ -521,6 +534,32 @@ $('#retake-btn').addEventListener('click', () => {
 // ============================================================
 // TOAST
 // ============================================================
+function showPermErr(id, e){
+  const name = (e && (e.name || e.message)) || 'Unknown';
+  let msg = '';
+  if (/Permission|Denied|NotAllowed/i.test(name)) {
+    msg = `
+      <div style="max-width:300px;text-align:center;line-height:1.6;color:#fff">
+        <div style="font-size:28px;margin-bottom:8px">🔒</div>
+        <div style="font-size:14px;font-weight:700;color:#FFE600;letter-spacing:0.1em;text-transform:uppercase">Camera permission needed</div>
+        <div style="font-size:12px;color:#aaa;margin-top:14px;line-height:1.7">
+          <b style="color:#fff">iPhone iOS</b><br>
+          설정 → Safari → 카메라 → <b>허용</b><br>
+          그 다음 이 페이지를 <b>사파리 탭 닫고 다시 열기</b><br><br>
+          또는 주소창의 <b>"AA"</b> 탭 → 웹사이트 설정 → 카메라 허용<br><br>
+          <b style="color:#fff">Mac Chrome</b><br>
+          주소창 왼쪽 카메라 아이콘 → 허용 → 새로고침
+        </div>
+        <button onclick="location.reload()" style="margin-top:20px;padding:12px 24px;background:#FFE600;color:#000;border:0;border-radius:100px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;font-size:11px;cursor:pointer">▸ Reload</button>
+      </div>
+    `;
+  } else {
+    msg = `<div style="max-width:280px;text-align:center;color:#fff">Camera error<br><br><small style="color:#888">${name}</small><br><br><button onclick="location.reload()" style="margin-top:12px;padding:10px 20px;background:#FFE600;color:#000;border:0;border-radius:100px;font-weight:700;font-size:11px;cursor:pointer">Reload</button></div>`;
+  }
+  document.getElementById(id).innerHTML = msg;
+  document.getElementById(id).classList.remove('hide');
+}
+
 function showToast(msg) {
   const old = document.querySelector('.toast'); if (old) old.remove();
   const t = document.createElement('div');
