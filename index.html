@@ -55,14 +55,15 @@ canvas.overlay.selfie{transform:scaleX(-1)}
 
 /* DOOR */
 .door-container{position:relative;width:70%;max-width:300px;cursor:pointer;z-index:6}
-.door-img{width:100%;border-radius:8px;transition:transform 0.8s cubic-bezier(.4,.0,.2,1);transform-origin:left center;box-shadow:0 0 40px rgba(255,230,0,0.3)}
+.door-img{width:100%;border-radius:8px;transition:transform 0.8s cubic-bezier(.4,.0,.2,1);transform-origin:left center;box-shadow:0 0 60px rgba(255,230,0,0.4),0 0 120px rgba(255,45,135,0.15)}
+.door-container{background:transparent}
 .door-container.opening .door-img{transform:perspective(800px) rotateY(-110deg);opacity:0.3}
 .door-hint{margin-top:16px;font-size:11px;letter-spacing:0.2em;color:#FFE600;font-weight:700;text-transform:uppercase;animation:pulse 1.5s infinite;text-align:center}
 @keyframes pulse{0%,100%{opacity:0.4}50%{opacity:1}}
 
 /* ALLEY */
 .alley-bg{position:absolute;inset:0;background-size:cover;background-position:center;opacity:0;transition:opacity 0.8s;z-index:3}
-.alley-bg.show{opacity:1}
+.alley-bg.show{opacity:0.82}
 .alley-bg::after{content:'';position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,0.3),rgba(0,0,0,0.1) 50%,rgba(0,0,0,0.7))}
 .alley-text{position:absolute;left:0;right:0;top:35%;text-align:center;z-index:6;opacity:0;transition:opacity 0.6s 0.3s}
 .alley-text.show{opacity:1}
@@ -75,7 +76,7 @@ canvas.overlay.selfie{transform:scaleX(-1)}
 .alley-text h2 em{font-style:normal;color:#FFE600}
 
 /* GRAFFITI */
-.graffiti-bg{position:absolute;inset:0;background-size:cover;background-position:center;z-index:3}
+.graffiti-bg{position:absolute;inset:0;background-size:cover;background-position:center;z-index:3;opacity:0.78}
 .graffiti-bg::after{content:'';position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,0.15),rgba(0,0,0,0.6))}
 .graffiti-canvas{position:absolute;inset:0;z-index:7;touch-action:none}
 .spray-colors{display:flex;gap:8px;z-index:8}
@@ -111,7 +112,7 @@ canvas.overlay.selfie{transform:scaleX(-1)}
     <button class="big-btn city" data-goto="city">
       <div class="tag">BOOTH AR — CITY MODE</div>
       <div class="ttl">ENTER THE CITY</div>
-      <div class="dsc">Open the 8 Mile door. Walk into Detroit. Spray your name.</div>
+      <div class="dsc">A door appears in your world. Open it. Walk into Detroit. Spray the wall.</div>
     </button>
     <button class="big-btn eminem" data-goto="eminem">
       <div class="tag">BOOTH AR — HERO HOOK</div>
@@ -221,12 +222,25 @@ function show(id){document.querySelectorAll('.screen').forEach(s=>s.classList.re
 function goHome(){stopCity();stopEminem();show('menu')}
 
 // CRITICAL: getUserMedia must be FIRST await in click handler for iOS Safari
-document.querySelector('[data-goto="city"]').addEventListener('click', ()=>{
-  // CITY mode: no camera — pure interactive visual sequence
-  show('city-screen');
-  $('#city-video').style.display='none';
-  $('#city-loading').classList.add('hide');
-  showCityStep(0);
+document.querySelector('[data-goto="city"]').addEventListener('click', async()=>{
+  // CITY mode: rear camera as AR background — virtual objects overlaid on reality
+  try{
+    try{cityStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'}},audio:false})}
+    catch(e1){cityStream=await navigator.mediaDevices.getUserMedia({video:true,audio:false})}
+    show('city-screen');
+    $('#city-video').style.display='';
+    $('#city-video').srcObject=cityStream;
+    await new Promise(r=>$('#city-video').onloadedmetadata=r);
+    $('#city-video').play();
+    $('#city-loading').classList.add('hide');
+    showCityStep(0);
+  }catch(e){
+    // Fallback: show without camera (black bg)
+    show('city-screen');
+    $('#city-video').style.display='none';
+    $('#city-loading').classList.add('hide');
+    showCityStep(0);
+  }
 });
 
 document.querySelector('[data-goto="eminem"]').addEventListener('click', async()=>{
