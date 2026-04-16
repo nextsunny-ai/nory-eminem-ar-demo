@@ -66,6 +66,10 @@ canvas.overlay.selfie{transform:scaleX(-1)}
 .alley-bg::after{content:'';position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,0.3),rgba(0,0,0,0.1) 50%,rgba(0,0,0,0.7))}
 .alley-text{position:absolute;left:0;right:0;top:35%;text-align:center;z-index:6;opacity:0;transition:opacity 0.6s 0.3s}
 .alley-text.show{opacity:1}
+.alley-bg.walking{animation:walkIn 1.5s forwards cubic-bezier(.4,.0,.2,1)}
+@keyframes walkIn{0%{transform:scale(1)}100%{transform:scale(2.5);filter:brightness(0.6)}}
+.step-transition{position:absolute;inset:0;background:#000;z-index:9;opacity:0;pointer-events:none;transition:opacity 0.5s}
+.step-transition.flash{opacity:1}
 .alley-text .eyebrow{font-size:10px;letter-spacing:0.3em;color:#FFE600;font-weight:700;text-transform:uppercase}
 .alley-text h2{font-size:36px;font-weight:900;letter-spacing:-0.02em;margin-top:6px;line-height:0.95;text-shadow:0 2px 16px rgba(0,0,0,0.8)}
 .alley-text h2 em{font-style:normal;color:#FFE600}
@@ -137,7 +141,7 @@ canvas.overlay.selfie{transform:scaleX(-1)}
       <div class="eyebrow">WELCOME TO</div>
       <h2>EMINEM'S<br><em>DETROIT</em></h2>
     </div>
-    <button class="next-btn" id="alley-next" style="position:absolute;bottom:100px;z-index:8">▸ ENTER THE ALLEY</button>
+    <button class="next-btn" id="alley-next" style="position:absolute;bottom:100px;z-index:8">▸ WALK IN</button>
   </div>
 
   <!-- Step 3: Graffiti -->
@@ -158,6 +162,8 @@ canvas.overlay.selfie{transform:scaleX(-1)}
       <button class="next-btn" id="graffiti-next">▸ BECOME EMINEM</button>
     </div>
   </div>
+
+  <div class="step-transition" id="step-transition"></div>
 
   <div class="hud">
     <div class="hud-top"><button class="back-btn" data-back>‹ BACK</button><div class="brand-hud">NORY CITY <span class="tag">× EMINEM</span></div></div>
@@ -267,7 +273,22 @@ $('#door-box').addEventListener('click',()=>{
   setTimeout(()=>{$('#door-img').src=$('#img-door-open').src},400);
   setTimeout(()=>{showCityStep(1)},1000);
 });
-$('#alley-next').addEventListener('click',()=>showCityStep(2));
+$('#alley-next').addEventListener('click',()=>{
+  // Walk-in zoom animation
+  const bg=$('#alley-bg');
+  bg.classList.add('walking');
+  $('#alley-text').style.opacity='0';
+  $('#alley-next').style.opacity='0';
+  // Flash transition to graffiti
+  setTimeout(()=>{
+    $('#step-transition').classList.add('flash');
+    setTimeout(()=>{
+      showCityStep(2);
+      $('#step-transition').classList.remove('flash');
+      bg.classList.remove('walking');
+    },500);
+  },1200);
+});
 $('#graffiti-next').addEventListener('click',async()=>{
   stopCity();show('eminem-screen');$('#em-loading').classList.remove('hide');
   try{
